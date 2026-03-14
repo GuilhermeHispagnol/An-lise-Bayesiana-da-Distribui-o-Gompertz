@@ -39,14 +39,12 @@ This implies an **exponentially increasing hazard rate**, which is common in agi
 
 The posterior distribution is given by:
 
-\[
-\pi(\alpha, \beta | x) \propto L(\alpha, \beta | x)\pi(\alpha)\pi(\beta)
-\]
+$\pi(\alpha, \beta | x) \propto L(\alpha, \beta | x)\pi(\alpha)\pi(\beta)$
 
 where:
 
-- \(L(\alpha,\beta|x)\) is the likelihood
-- \(\pi(\alpha)\) and \(\pi(\beta)\) are prior distributions
+- $L(\alpha,\beta|x)$ is the likelihood
+- $\pi(\alpha)$ and $\pi(\beta)$ are prior distributions
 
 Gamma priors were used for both parameters.
 
@@ -234,7 +232,7 @@ Therefore, the Bayesian model provides a stable and reliable estimation of the G
 - R
 - coda
 - ggplot2
-- MCMC
+- MCMC (Metropolis_Hasting)
 - Bayesian inference
 
 ---
