@@ -1,0 +1,170 @@
+---
+title: "Análise Bayesiana Gompertz"
+author: "Guilherme Henrique Hispagol Bicho"
+date: "2026-03-14"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Dados observados
+x <- c(0.31, 2.18, 2.55, 3.63, 2.44, 2.07, 3.06, 3.00, 2.63, 1.08,
+       2.38, 2.45, 1.16, 0.95, 2.29, 2.02, 1.60, 2.12, 1.19, 2.31,
+       1.58, 0.59, 3.82, 2.68, 2.53, 1.01, 2.51, 1.86, 2.50, 3.51,
+       2.07, 1.01, 1.12, 2.02, 0.91, 2.09, 1.27, 1.96, 2.67, 1.75,
+       2.32, 2.87, 2.08, 2.80, 2.35, 0.28, 1.51, 2.43, 0.98, 2.12)
+```
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Pacotes
+library(stats4)
+library(evd)
+library(coda)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+#
+
+# Parâmetros do MCMC
+R <- 105000
+burn_in <-5000  
+jump <- 5
+num_samples <- R - burn_in
+
+# Hiperparâmetros
+ni_alfa <- 0.04
+ni_beta <- 0.24
+
+# Log-posterior da Gompertz
+log_posterior <- function(a, b) {
+  if (a <= 0 || b <= 0) return(-Inf)
+  termo <- sum(exp(b * x) - 1)
+  n <- length(x)
+  n * log(a) + b * sum(x) - (a / b) * termo +
+    dgamma(a, 0.01, 0.01, log = TRUE) +
+    dgamma(b, 0.01, 0.01, log = TRUE)
+}
+
+# Função MCMC otimizada (sem thinning interno)
+run_chain_optimized <- function(init_alfa, init_beta, R, burn_in) {
+  samples_alfa <- numeric(R - burn_in)
+  samples_beta <- numeric(R - burn_in)
+  current_alfa <- init_alfa
+  current_beta <- init_beta
+  accept_alfa <- 0
+  accept_beta <- 0
+  
+  for (i in 1:R) {
+    # Proposta alfa
+    prop_alfa <- rgamma(1, shape = current_alfa^2 / ni_alfa^2,
+                        scale = ni_alfa^2 / current_alfa)
+    log_ratio_alfa <- log_posterior(prop_alfa, current_beta) -
+      log_posterior(current_alfa, current_beta) +
+      dgamma(current_alfa, shape = prop_alfa^2 / ni_alfa^2,
+             scale = ni_alfa^2 / prop_alfa, log = TRUE) -
+      dgamma(prop_alfa, shape = current_alfa^2 / ni_alfa^2,
+             scale = ni_alfa^2 / current_alfa, log = TRUE)
+    if (log(runif(1)) < log_ratio_alfa) {
+      current_alfa <- prop_alfa
+      if (i > burn_in) accept_alfa <- accept_alfa + 1
+    }
+    
+    # Proposta beta
+    prop_beta <- rgamma(1, shape = current_beta^2 / ni_beta^2,
+                        scale = ni_beta^2 / current_beta)
+    log_ratio_beta <- log_posterior(current_alfa, prop_beta) -
+      log_posterior(current_alfa, current_beta) +
+      dgamma(current_beta, shape = prop_beta^2 / ni_beta^2,
+             scale = ni_beta^2 / prop_beta, log = TRUE) -
+      dgamma(prop_beta, shape = current_beta^2 / ni_beta^2,
+             scale = ni_beta^2 / current_beta, log = TRUE)
+    if (log(runif(1)) < log_ratio_beta) {
+      current_beta <- prop_beta
+      if (i > burn_in) accept_beta <- accept_beta + 1
+    }
+    
+    if (i > burn_in) {
+      idx <- i - burn_in
+      samples_alfa[idx] <- current_alfa
+      samples_beta[idx] <- current_beta
+    }
+  }
+  
+  return(list(
+    alfa = samples_alfa,
+    beta = samples_beta,
+    accept_alfa = accept_alfa / (R - burn_in),
+    accept_beta = accept_beta / (R - burn_in)
+  ))
+}
+
+# Rodar 3 cadeias
+set.seed(123)
+chain1 <- run_chain_optimized(0.05, 0.8, R, burn_in)
+chain2 <- run_chain_optimized(0.1, 1.0, R, burn_in)
+chain3 <- run_chain_optimized(0.15, 1.2, R, burn_in)
+
+# =========================================================
+# Função para aplicar thinning dinamicamente
+# =========================================================
+
+apply_thinning <- function(chain1, chain2, chain3, jump){
+  
+  thin_chain <- function(samples, jump){
+    idx <- seq(1, length(samples), by = jump)
+    samples[idx]
+  }
+  
+  alfa <- c(
+    thin_chain(chain1$alfa, jump),
+    thin_chain(chain2$alfa, jump),
+    thin_chain(chain3$alfa, jump)
+  )
+  
+  beta <- c(
+    thin_chain(chain1$beta, jump),
+    thin_chain(chain2$beta, jump),
+    thin_chain(chain3$beta, jump)
+  )
+  
+  list(alfa = alfa, beta = beta)
+}
+
+# =========================================================
+# Aplicar thinning inicial
+# =========================================================
+
+thin_results <- apply_thinning(chain1, chain2, chain3, jump)
+
+alfa_thin <- thin_results$alfa
+beta_thin <- thin_results$beta
+
+
+# Diagnósticos
+mcmc_chains <- mcmc.list(
+  mcmc(cbind(alfa = chain1$alfa, beta = chain1$beta)),
+  mcmc(cbind(alfa = chain2$alfa, beta = chain2$beta)),
+  mcmc(cbind(alfa = chain3$alfa, beta = chain3$beta))
+)
+
+cat("Taxas de aceitação:\n")
+cat("Cadeia 1 - alfa:", chain1$accept_alfa, "beta:", chain1$accept_beta, "\n")
+cat("Cadeia 2 - alfa:", chain2$accept_alfa, "beta:", chain2$accept_beta, "\n")
+cat("Cadeia 3 - alfa:", chain3$accept_alfa, "beta:", chain3$accept_beta, "\n")
+
+print(summary(mcmc_chains))
+print(gelman.diag(mcmc_chains))
+print(effectiveSize(mcmc_chains))
+
+# Tabela resumo
+ic_alfa <- quantile(alfa_thin, c(0.025, 0.975))
+ic_beta <- quantile(beta_thin, c(0.025, 0.975))
+
+summary_table <- data.frame(
+  Parâmetro = c("alfa", "beta"),
+  Média = c(mean(alfa_thin), mean(beta_thin)),
+  `Desvio Padrão` = c(sd(alfa_thin), sd(beta_thin)),
+  `IC 2.5%` = c(ic_alfa[1], ic_beta[1]),
+  `IC 97.5%` = c(ic_alfa[2], ic_beta[2])
+)
+print(summary_table)
+```
