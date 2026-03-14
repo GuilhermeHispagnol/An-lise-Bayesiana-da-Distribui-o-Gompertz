@@ -207,7 +207,9 @@ Bayesian inference combines prior knowledge with information from the data throu
 The posterior distribution is obtained using Bayes' theorem.
 
 ![Bayesian Triad](alpha_bayesian_triad.png)
+
 ![Bayesian Triad](beta_bayesian_triad.png)
+
 ---
 
 # Interpretation of Results
