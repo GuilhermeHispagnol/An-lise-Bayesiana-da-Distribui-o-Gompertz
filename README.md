@@ -29,9 +29,7 @@ The Gompertz distribution is defined by two parameters:
 
 The hazard function of the Gompertz model is:
 
-\[
-h(t) = \alpha e^{\beta t}
-\]
+$h(t) = \alpha e^{\beta t}$
 
 This implies an **exponentially increasing hazard rate**, which is common in aging and reliability processes.
 
