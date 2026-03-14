@@ -1,7 +1,7 @@
 # Bayesian Analysis of the Gompertz Distribution using MCMC
 
 Author: Guilherme Henrique Hispagol Bicho  
-Date: 2026
+Date: 2022
 
 ---
 
